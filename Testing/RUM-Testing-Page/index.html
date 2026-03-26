@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RUM Monitoring Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 40px;
+    }
+    .card {
+      background: white;
+      max-width: 680px;
+      margin: 0 auto;
+      border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+      overflow: hidden;
+    }
+    .header {
+      background: #2e2e38;
+      color: #ffe600;
+      padding: 16px 24px;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+    .body { padding: 32px 24px; }
+    h2 { color: #2e2e38; margin-bottom: 16px; }
+    p { margin-bottom: 12px; color: #333; line-height: 1.6; }
+    .btn-row { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .btn-primary { background: #2e2e38; color: #ffe600; }
+    .btn-secondary { background: #ffe600; color: #2e2e38; }
+    .btn-danger { background: #c00; color: white; }
+    #status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 3px;
+      font-size: 13px;
+      display: none;
+    }
+    .success { background: #e6f4ea; color: #1e7e34; display: block !important; }
+    .error-box { background: #fde8e8; color: #c00; display: block !important; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="header">RUM Monitoring Test Page</div>
+    <div class="body">
+      <h2>Service Update</h2>
+      <p><strong>Goldie was retired effective 28 February 2026 and is no longer available.</strong></p>
+      <p>There is no direct replacement at this time; alternative support options are available below.</p>
+      <p>For support, please visit your local Talent or HR support pages.</p>
+
+      <!-- Interaction buttons to generate RUM events -->
+      <div class="btn-row">
+        <button class="btn-primary" onclick="simulateApiCall()">Simulate API Call</button>
+        <button class="btn-secondary" onclick="simulateSlowAction()">Simulate Slow Action</button>
+        <button class="btn-danger" onclick="simulateError()">Simulate JS Error</button>
+      </div>
+
+      <div id="status"></div>
+    </div>
+  </div>
+
+  <!-- Elastic APM RUM Agent -->
+  <script src="https://unpkg.com/@elastic/apm-rum/dist/bundles/elastic-apm-rum.umd.min.js"></script>
+  <script>
+    // ── CONFIG ──────────────────────────────────────────────────────
+    const APM_SERVER_URL = "https://URL-HERE.apm.us-central1.gcp.cloud.es.io:443";   // e.g. https://abc123.apm.eastus2.azure.elastic-cloud.com
+    const APM_SECRET_TOKEN = "TOKEN-HERE";   // from Elastic Cloud → APM
+    // ────────────────────────────────────────────────────────────────
+
+    var apm;
+
+    document.addEventListener("DOMContentLoaded", function () {
+      if (typeof elasticApm !== "undefined") {
+        apm = elasticApm.init({
+          serviceName: 'Goldie_PROD_RUM',
+          serverUrl: APM_SERVER_URL,
+          secretToken: APM_SECRET_TOKEN,
+          environment: 'PROD',
+          serviceVersion: '1.0.0',
+
+          // Page load performance
+          pageLoadTransactionName: window.location.pathname,
+
+          // Capture all XHR and fetch calls
+          distributedTracing: true,
+          distributedTracingOrigins: ['*'],
+
+          // Capture JS errors automatically
+          logLevel: 'debug'
+        });
+
+        console.log("✅ Elastic APM RUM initialized");
+        showStatus("APM initialized — page load transaction sent to Elastic!", "success");
+      } else {
+        console.error("❌ Elastic APM RUM agent failed to load.");
+        showStatus("APM agent failed to load. Check console.", "error-box");
+      }
+    });
+
+    // ── Simulate an API/XHR call (captured automatically by APM) ────
+    function simulateApiCall() {
+      showStatus("Making API call — check APM for the transaction...", "success");
+      fetch("https://jsonplaceholder.typicode.com/posts/1")
+        .then(res => res.json())
+        .then(data => {
+          showStatus("✅ API call complete — check Kibana > APM > Transactions", "success");
+        })
+        .catch(err => {
+          showStatus("API call failed: " + err.message, "error-box");
+        });
+    }
+
+    // ── Simulate a slow user action (custom transaction) ────────────
+    function simulateSlowAction() {
+      if (!apm) return;
+      var transaction = apm.startTransaction("slow-user-action", "user-interaction");
+      showStatus("Simulating slow action (2 seconds)...", "success");
+      setTimeout(function () {
+        transaction.end();
+        showStatus("✅ Slow action complete — visible in Kibana > APM > Transactions", "success");
+      }, 2000);
+    }
+
+    // ── Simulate a JavaScript error (captured automatically) ────────
+    function simulateError() {
+      showStatus("Throwing a JS error — check Kibana > APM > Errors...", "error-box");
+      setTimeout(function () {
+        throw new Error("Simulated RUM error from Goldie test page");
+      }, 100);
+    }
+
+    function showStatus(msg, cls) {
+      var el = document.getElementById("status");
+      el.textContent = msg;
+      el.className = cls;
+    }
+  </script>
+
+</body>
+</html>
