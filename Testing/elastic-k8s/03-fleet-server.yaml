@@ -1,0 +1,79 @@
+---
+# ServiceAccount used by Fleet Server pods for Kubernetes autodiscovery
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fleet-server
+  namespace: elastic-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fleet-server
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - namespaces
+      - nodes
+    verbs: [get, watch, list]
+  - apiGroups: ["coordination.k8s.io"]
+    resources:
+      - leases
+    verbs: [get, create, update]
+  - apiGroups: ["apps"]
+    resources:
+      - replicasets
+    verbs: [list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fleet-server
+subjects:
+  - kind: ServiceAccount
+    name: fleet-server
+    namespace: elastic-system
+roleRef:
+  kind: ClusterRole
+  name: fleet-server
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: agent.k8s.elastic.co/v1alpha1
+kind: Agent
+metadata:
+  name: fleet-server
+  namespace: elastic-system
+spec:
+  version: 9.5.1
+  mode: fleet
+  fleetServerEnabled: true
+  # Create this policy first via: POST /api/fleet/agent_policies with is_default_fleet_server:true
+  # Then set the returned id here. Required by ECK 3.x+.
+  policyID: d69f19ce-2472-44bb-bde0-2d886892d13f
+  elasticsearchRefs:
+    - name: elasticsearch
+  kibanaRef:
+    name: kibana
+  deployment:
+    replicas: 1
+    podTemplate:
+      spec:
+        serviceAccountName: fleet-server
+        automountServiceAccountToken: true
+        securityContext:
+          runAsUser: 0
+        containers:
+          - name: agent
+            resources:
+              requests:
+                memory: 512Mi
+                cpu: "200m"
+              limits:
+                memory: 1Gi
+                cpu: "500m"
+  http:
+    service:
+      spec:
+        # Exposes Fleet Server via a GCP external load balancer for Elastic Agent enrollment
+        type: LoadBalancer

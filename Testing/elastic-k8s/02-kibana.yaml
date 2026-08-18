@@ -1,0 +1,26 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+  namespace: elastic-system
+spec:
+  version: 9.5.1
+  count: 1
+  elasticsearchRef:
+    name: elasticsearch
+  podTemplate:
+    spec:
+      containers:
+        - name: kibana
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: "500m"
+            limits:
+              memory: 2Gi
+              cpu: "1"
+  http:
+    service:
+      spec:
+        # Exposes Kibana via a GCP external load balancer
+        type: LoadBalancer
