@@ -1,0 +1,68 @@
+# Spring Boot app (spring-petclinic-rest) instrumented with the UPSTREAM OpenTelemetry Java agent
+# (v2.10.0, downloaded by a busybox init container), sending OTLP to Elastic Cloud.
+# The auth header comes from the Secret in otel-apm-auth-secret.yaml (create that first).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testapp-upstream-otel
+  namespace: default
+  labels:
+    app: testapp-upstream-otel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: testapp-upstream-otel
+  template:
+    metadata:
+      labels:
+        app: testapp-upstream-otel
+    spec:
+      volumes:
+        - name: otel-agent
+          emptyDir: {}
+      initContainers:
+        - name: otel-agent-download
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - wget -O /otel/opentelemetry-javaagent.jar https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.10.0/opentelemetry-javaagent.jar
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
+      containers:
+        - name: testapp-upstream-otel
+          image: springcommunity/spring-petclinic-rest:3.4.3
+          ports:
+            - containerPort: 9966
+          volumeMounts:
+            - name: otel-agent
+              mountPath: /otel
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/otel/opentelemetry-javaagent.jar"
+            - name: OTEL_SERVICE_NAME
+              value: testapp-upstream-otel
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "<your-otlp-endpoint>"   # e.g. https://<id>.ingest.<region>.<csp>.elastic-cloud.com:443
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              valueFrom:
+                secretKeyRef:
+                  name: otel-apm-auth
+                  key: OTEL_EXPORTER_OTLP_HEADERS
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { memory: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testapp-upstream-otel
+  namespace: default
+spec:
+  selector:
+    app: testapp-upstream-otel
+  ports:
+    - port: 9966
+      targetPort: 9966
