@@ -1,0 +1,53 @@
+# Elastic Agent in OTel mode, Gateway configuration for Elastic Stack 9.4.x.
+# Based on the 9.4 branch of elastic/elastic-agent internal/edot/samples/linux/gateway.yml
+# (comments removed, auth/TLS extensions left out for this local test).
+#
+# App (EDOT Node.js SDK) --OTLP/HTTP :4318--> this Collector --elasticsearch exporter--> Elasticsearch
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+connectors:
+  elasticapm: {}   # generates pre-aggregated APM metrics from traces
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 1s
+    send_batch_max_size: 1500
+  batch/metrics:
+    send_batch_max_size: 0   # do not split metrics requests
+    timeout: 1s
+  elasticapm: {}   # enriches traces so the Elastic APM UIs work
+
+exporters:
+  debug: {}   # prints what the Collector handles; remove once the test works
+  elasticsearch/otel:
+    endpoints:
+      - ${env:ELASTIC_ENDPOINT}
+    api_key: ${env:ELASTIC_API_KEY}
+    mapping:
+      mode: otel
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch/metrics]
+      exporters: [debug, elasticsearch/otel]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, elasticapm, elasticsearch/otel]
+    traces:
+      receivers: [otlp]
+      processors: [batch, elasticapm]
+      exporters: [debug, elasticapm, elasticsearch/otel]
+    metrics/aggregated-otel-metrics:
+      receivers: [elasticapm]
+      processors: []
+      exporters: [debug, elasticsearch/otel]

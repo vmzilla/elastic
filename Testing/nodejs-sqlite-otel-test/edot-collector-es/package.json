@@ -1,0 +1,22 @@
+{
+  "name": "nodejs-sqlite-edot-collector-es",
+  "version": "1.0.0",
+  "description": "Express + SQLite app instrumented with EDOT Node.js, sending OTLP to an Elastic Agent (EDOT Collector, gateway mode) which writes to Elasticsearch",
+  "main": "app.js",
+  "private": true,
+  "scripts": {
+    "start": "node --env-file=sdk.env --import @elastic/opentelemetry-node app.js",
+    "start:plain": "node app.js",
+    "collector:up": "docker compose --env-file collector.env up -d",
+    "collector:down": "docker compose --env-file collector.env down",
+    "collector:logs": "docker compose --env-file collector.env logs -f otel-collector"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@elastic/opentelemetry-node": "^1.20.1",
+    "@opentelemetry/api": "^1.9.1",
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.3.0",
+    "pino": "^10.4.0"
+  }
+}
