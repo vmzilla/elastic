@@ -1,0 +1,17 @@
+{
+  "name": "akhils-apm-agent",
+  "version": "1.0.0",
+  "description": "Same Express + SQLite app as edot-collector-es, instrumented with the classic elastic-apm-node agent (APM Server intake)",
+  "main": "app.js",
+  "private": true,
+  "scripts": {
+    "start": "node --env-file=apm.env -r elastic-apm-node/start app.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "elastic-apm-node": "^4.15.0",
+    "express": "^5.3.0",
+    "pino": "^10.4.0"
+  }
+}
